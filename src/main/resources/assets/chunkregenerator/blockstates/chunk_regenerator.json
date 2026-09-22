@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "powered=false": {
+      "model": "chunkregenerator:block/chunk_regenerator"
+    },
+    "powered=true": {
+      "model": "chunkregenerator:block/chunk_regenerator_powered"
+    }
+  }
+}

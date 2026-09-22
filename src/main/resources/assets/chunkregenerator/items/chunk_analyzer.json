@@ -1,0 +1,6 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "chunkregenerator:item/chunk_analyzer"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "pattern": [
+    "OOO",
+    "DER",
+    "OOO"
+  ],
+  "key": {
+    "O": "minecraft:obsidian",
+    "D": "minecraft:diamond",
+    "E": "minecraft:ender_pearl",
+    "R": "minecraft:redstone_block"
+  },
+  "result": {
+    "id": "chunkregenerator:chunk_regenerator",
+    "count": 1
+  }
+}
