@@ -1,0 +1,6 @@
+{
+  "model": {
+    "type": "minecraft:model",
+    "model": "chunkregenerator:block/chunk_remover"
+  }
+}

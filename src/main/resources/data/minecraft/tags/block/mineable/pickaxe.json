@@ -1,0 +1,7 @@
+{
+  "replace": false,
+  "values": [
+    "chunkregenerator:chunk_regenerator",
+    "chunkregenerator:chunk_remover"
+  ]
+}
