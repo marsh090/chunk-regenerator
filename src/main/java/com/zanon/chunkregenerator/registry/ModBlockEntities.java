@@ -1,6 +1,7 @@
 package com.zanon.chunkregenerator.registry;
 
 import com.zanon.chunkregenerator.ChunkRegeneratorMod;
+import com.zanon.chunkregenerator.block.entity.ChunkDevourerBlockEntity;
 import com.zanon.chunkregenerator.block.entity.ChunkRegeneratorBlockEntity;
 
 import net.minecraft.core.registries.Registries;
@@ -17,6 +18,11 @@ public final class ModBlockEntities {
                     ChunkRegeneratorBlockEntity::new,
                     ModBlocks.CHUNK_REGENERATOR.get(),
                     ModBlocks.CHUNK_REMOVER.get()));
+
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<ChunkDevourerBlockEntity>> CHUNK_DEVOURER =
+            BLOCK_ENTITIES.register("chunk_devourer", () -> new BlockEntityType<>(
+                    ChunkDevourerBlockEntity::new,
+                    ModBlocks.CHUNK_DEVOURER.get()));
 
     private ModBlockEntities() {}
 }

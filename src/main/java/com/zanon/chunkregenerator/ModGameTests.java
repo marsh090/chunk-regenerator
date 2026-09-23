@@ -8,6 +8,8 @@ import java.util.UUID;
 import java.util.function.Consumer;
 
 import com.mojang.authlib.GameProfile;
+import com.zanon.chunkregenerator.block.ChunkDevourerBlock;
+import com.zanon.chunkregenerator.block.entity.ChunkDevourerBlockEntity;
 import com.zanon.chunkregenerator.block.entity.ChunkRegeneratorBlockEntity;
 import com.zanon.chunkregenerator.claim.ClaimAccess;
 import com.zanon.chunkregenerator.claim.ClaimProbe;
@@ -62,6 +64,8 @@ public final class ModGameTests {
         registerFunction("chunk_remove_keeps_bedrock", ModGameTests::chunkRemoveKeepsBedrock);
         registerFunction("analyzer_cost_and_scan", ModGameTests::analyzerCostAndScan);
         registerFunction("command_registered", ModGameTests::commandRegistered);
+        registerFunction("devourer_eats_one_block", ModGameTests::devourerEatsOneBlock);
+        registerFunction("regen_keeps_devourer", ModGameTests::regenKeepsDevourer);
 
         Holder<TestEnvironmentDefinition<?>> environment = event.registerEnvironment(Identifier.parse("chunkregenerator:test"));
         registerInstance(event, "unclaimed_regen", environment, 600);
@@ -72,6 +76,8 @@ public final class ModGameTests {
         registerInstance(event, "chunk_remove_keeps_bedrock", environment, 200);
         registerInstance(event, "analyzer_cost_and_scan", environment, 100);
         registerInstance(event, "command_registered", environment, 100);
+        registerInstance(event, "devourer_eats_one_block", environment, 200);
+        registerInstance(event, "regen_keeps_devourer", environment, 600);
     }
 
     private static void registerFunction(String name, Consumer<GameTestHelper> function) {
@@ -283,6 +289,138 @@ public final class ModGameTests {
         helper.assertTrue(ChunkAnalyzer.tryAnalyze(level, chunk, creative, null) != null, "creative scan should ignore energy");
         helper.assertTrue(creative.getOrDefault(ModDataComponents.ENERGY.get(), -1) == 0, "creative analyzer spent energy");
         helper.succeed();
+    }
+
+    private static void devourerEatsOneBlock(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        ChunkPos chunk = new ChunkPos(96, 90);
+        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+        BlockPos machinePos = null;
+        BlockPos bedrockPos = null;
+        for (int y = level.getMinY(); y < level.getMaxY(); y++) {
+            cursor.set(chunk.getMinBlockX() + 2, y, chunk.getMinBlockZ() + 2);
+            if (bedrockPos == null && level.getBlockState(cursor).is(Blocks.BEDROCK)) {
+                bedrockPos = cursor.immutable();
+            }
+            if (machinePos == null && level.getBlockState(cursor).isAir()) {
+                machinePos = cursor.immutable();
+                break;
+            }
+        }
+        helper.assertTrue(machinePos != null && bedrockPos != null, "devourer test chunk has no space");
+        BlockPos foodPos = machinePos.offset(2, 0, 2);
+        BlockPos shellPos = machinePos.above();
+        BlockPos keptPos = machinePos.offset(2, 0, 0);
+        level.setBlockAndUpdate(machinePos, ModBlocks.CHUNK_DEVOURER.get().defaultBlockState());
+        helper.assertTrue(level.getBlockEntity(machinePos) instanceof ChunkDevourerBlockEntity, "devourer block entity missing");
+        ChunkDevourerBlockEntity blockEntity = (ChunkDevourerBlockEntity) level.getBlockEntity(machinePos);
+        blockEntity.setPlacer(UUID.randomUUID());
+        level.setBlockAndUpdate(foodPos, Blocks.DIAMOND_BLOCK.defaultBlockState());
+        level.setBlockAndUpdate(shellPos, Blocks.DIAMOND_BLOCK.defaultBlockState());
+        level.setBlockAndUpdate(keptPos, Blocks.OAK_LOG.defaultBlockState());
+        blockEntity.setItem(0, new ItemStack(Items.OAK_LOG));
+
+        helper.assertTrue(blockEntity.wouldSpare(bedrockPos), "bedrock should be spared");
+        helper.assertTrue(blockEntity.wouldSpare(keptPos), "filtered oak log should be spared");
+        helper.assertTrue(blockEntity.wouldSpare(shellPos), "blocks touching the devourer should be spared");
+        helper.assertTrue(!blockEntity.wouldSpare(foodPos), "diamond block should be eaten");
+        BlockPos regeneratorPos = machinePos.offset(3, 0, 0);
+        BlockPos removerPos = machinePos.offset(3, 0, 1);
+        level.setBlockAndUpdate(regeneratorPos, ModBlocks.CHUNK_REGENERATOR.get().defaultBlockState());
+        level.setBlockAndUpdate(removerPos, ModBlocks.CHUNK_REMOVER.get().defaultBlockState());
+        helper.assertTrue(blockEntity.wouldSpare(regeneratorPos), "devourer should spare the regenerator");
+        helper.assertTrue(blockEntity.wouldSpare(removerPos), "devourer should spare the remover");
+        level.setBlockAndUpdate(regeneratorPos, Blocks.AIR.defaultBlockState());
+        level.setBlockAndUpdate(removerPos, Blocks.AIR.defaultBlockState());
+
+        BlockState unpowered = blockEntity.getBlockState();
+        ChunkDevourerBlockEntity.serverTick(level, machinePos, unpowered, blockEntity);
+        helper.assertTrue(level.getBlockState(foodPos).is(Blocks.DIAMOND_BLOCK), "unpowered devourer ate a block");
+
+        blockEntity.setScanIndex(ChunkDevourerBlockEntity.indexFor(level, foodPos));
+        BlockState powered = unpowered.setValue(ChunkDevourerBlock.POWERED, true);
+        ChunkDevourerBlockEntity.serverTick(level, machinePos, powered, blockEntity);
+        helper.assertTrue(level.getBlockState(foodPos).isAir(), "powered devourer left the diamond block");
+        helper.assertTrue(blockEntity.getEnergy() == ChunkDevourerBlockEntity.FE_PER_BLOCK, "energy was " + blockEntity.getEnergy());
+        helper.assertTrue(level.getBlockState(keptPos).is(Blocks.OAK_LOG), "filter did not protect the oak log");
+        helper.assertTrue(level.getBlockState(shellPos).is(Blocks.DIAMOND_BLOCK), "devourer ate a block in its 3x3x3");
+
+        level.setBlockAndUpdate(foodPos, Blocks.DIAMOND_BLOCK.defaultBlockState());
+        helper.assertTrue(blockEntity.tryFeed(new ItemStack(Items.NETHERITE_INGOT), true) == 1, "netherite was refused");
+        blockEntity.setScanIndex(ChunkDevourerBlockEntity.indexFor(level, foodPos));
+        int before = blockEntity.getEnergy();
+        ChunkDevourerBlockEntity.serverTick(level, machinePos, powered, blockEntity);
+        helper.assertTrue(level.getBlockState(foodPos).isAir(), "upgraded devourer left the diamond block");
+        helper.assertTrue(blockEntity.getEnergy() == before + 2, "netherite yield was " + blockEntity.getEnergy());
+
+        level.setBlockAndUpdate(foodPos, Blocks.DIAMOND_BLOCK.defaultBlockState());
+        blockEntity.setStoredEnergy(ChunkDevourerBlockEntity.CAPACITY - 1);
+        blockEntity.setScanIndex(ChunkDevourerBlockEntity.indexFor(level, foodPos));
+        ChunkDevourerBlockEntity.serverTick(level, machinePos, powered, blockEntity);
+        helper.assertTrue(level.getBlockState(foodPos).isAir(), "partial buffer left the diamond block");
+        helper.assertTrue(blockEntity.getEnergy() == ChunkDevourerBlockEntity.CAPACITY, "partial buffer did not fill, energy was " + blockEntity.getEnergy());
+
+        level.setBlockAndUpdate(foodPos, Blocks.DIAMOND_BLOCK.defaultBlockState());
+        blockEntity.setStoredEnergy(ChunkDevourerBlockEntity.CAPACITY);
+        blockEntity.setScanIndex(ChunkDevourerBlockEntity.indexFor(level, foodPos));
+        ChunkDevourerBlockEntity.serverTick(level, machinePos, powered, blockEntity);
+        helper.assertTrue(level.getBlockState(foodPos).is(Blocks.DIAMOND_BLOCK), "full devourer ate a block");
+        helper.assertTrue(blockEntity.getEnergy() == ChunkDevourerBlockEntity.CAPACITY, "full buffer changed");
+
+        helper.assertTrue(blockEntity.tryFeed(new ItemStack(Items.NETHER_STAR), true) == 1, "nether star was refused");
+        helper.assertTrue(blockEntity.yield() == 12, "star yield was " + blockEntity.yield());
+        helper.assertTrue(blockEntity.tryFeed(new ItemStack(Items.NETHER_STAR), true) == 0, "second nether star was accepted");
+        ItemStack extraIngots = new ItemStack(Items.NETHERITE_INGOT, 20);
+        helper.assertTrue(blockEntity.tryFeed(extraIngots, true) == 8, "netherite cap was " + blockEntity.netheriteCount());
+        helper.assertTrue(extraIngots.getCount() == 12, "leftover netherite was " + extraIngots.getCount());
+        helper.assertTrue(blockEntity.tryFeed(new ItemStack(Items.GOLDEN_APPLE), true) == 1, "golden apple was refused");
+        helper.assertTrue(blockEntity.blocksPerTick() == 10, "haste should void 10 blocks per tick");
+        helper.assertTrue(blockEntity.hasteTicks() == ChunkDevourerBlockEntity.HASTE_TICKS, "haste should last 3 minutes");
+
+        level.setBlockAndUpdate(foodPos, Blocks.DIAMOND_BLOCK.defaultBlockState());
+        var saved = ChunkDevourerBlockEntity.preserveInChunk(level, chunk);
+        helper.assertTrue(saved.size() == 1, "preserve missed the devourer");
+        helper.assertTrue(saved.get(0).energy() == ChunkDevourerBlockEntity.CAPACITY, "preserved energy was " + saved.get(0).energy());
+        helper.assertTrue(saved.get(0).netherite() == 9, "preserved netherite was " + saved.get(0).netherite());
+        blockEntity.setScanIndex(ChunkDevourerBlockEntity.indexFor(level, foodPos));
+        ChunkDevourerBlockEntity.serverTick(level, machinePos, powered, blockEntity);
+        helper.assertTrue(level.getBlockState(foodPos).is(Blocks.DIAMOND_BLOCK), "retired devourer voided a block");
+        helper.succeed();
+    }
+
+    private static void regenKeepsDevourer(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        ChunkPos chunk = new ChunkPos(97, 90);
+        BlockPos devourerPos = new BlockPos(chunk.getMinBlockX() + 4, level.getMinY() + 12, chunk.getMinBlockZ() + 4);
+        BlockPos marker = devourerPos.offset(3, 0, 0);
+        BlockPos regeneratorPos = devourerPos.above(2);
+        level.setBlockAndUpdate(marker, Blocks.DIAMOND_BLOCK.defaultBlockState());
+        level.setBlockAndUpdate(devourerPos, ModBlocks.CHUNK_DEVOURER.get().defaultBlockState());
+        level.setBlock(devourerPos, level.getBlockState(devourerPos).setValue(ChunkDevourerBlock.POWERED, true), net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
+        helper.assertTrue(level.getBlockEntity(devourerPos) instanceof ChunkDevourerBlockEntity, "devourer missing before regen");
+        ChunkDevourerBlockEntity devourer = (ChunkDevourerBlockEntity) level.getBlockEntity(devourerPos);
+        devourer.setPlacer(UUID.randomUUID());
+        devourer.setStoredEnergy(4321);
+        helper.assertTrue(devourer.tryFeed(new ItemStack(Items.NETHERITE_INGOT, 4), true) == 4, "could not feed netherite");
+        devourer.setItem(0, new ItemStack(Items.OAK_LOG));
+        level.setBlockAndUpdate(regeneratorPos, ModBlocks.CHUNK_REGENERATOR.get().defaultBlockState());
+        if (level.getBlockEntity(regeneratorPos) instanceof ChunkRegeneratorBlockEntity regenerator) {
+            regenerator.setPlacer(devourer.getPlacer());
+        }
+        RegenResult result = ChunkRegenService.tryActivate(level, regeneratorPos);
+        helper.assertTrue(result == RegenResult.STARTED, "expected regeneration to start, got " + result);
+        helper.succeedWhen(() -> {
+            LevelChunk loaded = level.getChunkSource().getChunkNow(chunk.x(), chunk.z());
+            helper.assertTrue(loaded != null, "chunk missing");
+            helper.assertTrue(loaded.getBlockEntity(devourerPos) instanceof ChunkDevourerBlockEntity, "devourer was not restored");
+            ChunkDevourerBlockEntity restored = (ChunkDevourerBlockEntity) loaded.getBlockEntity(devourerPos);
+            helper.assertTrue(restored != devourer, "restored the retired devourer");
+            helper.assertTrue(restored.getEnergy() >= 4321, "energy was " + restored.getEnergy());
+            helper.assertTrue(restored.netheriteCount() == 4, "netherite was " + restored.netheriteCount());
+            helper.assertTrue(restored.getBlockState().getValue(ChunkDevourerBlock.POWERED), "devourer lost its powered state");
+            helper.assertTrue(restored.getItem(0).is(Items.OAK_LOG), "filter was not restored");
+            helper.assertTrue(!loaded.getBlockState(marker).is(Blocks.DIAMOND_BLOCK), "diamond marker survived regeneration");
+        });
     }
 
     private static void commandRegistered(GameTestHelper helper) {

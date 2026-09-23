@@ -1,8 +1,11 @@
 package com.zanon.chunkregenerator;
 
 import com.zanon.chunkregenerator.client.AnalyzerTagsScreen;
+import com.zanon.chunkregenerator.client.ChunkDevourerScreen;
 import com.zanon.chunkregenerator.item.ChunkAnalyzer;
 import com.zanon.chunkregenerator.item.ChunkAnalyzerItem;
+
+import net.neoforged.bus.api.IEventBus;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.InteractionHand;
@@ -18,8 +21,9 @@ import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 
 @Mod(value = ChunkRegeneratorMod.MOD_ID, dist = Dist.CLIENT)
 public class ChunkRegeneratorClient {
-    public ChunkRegeneratorClient(ModContainer container) {
+    public ChunkRegeneratorClient(IEventBus modEventBus, ModContainer container) {
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
+        modEventBus.addListener(ChunkDevourerScreen::register);
         NeoForge.EVENT_BUS.addListener(ChunkRegeneratorClient::onRightClickBlock);
         NeoForge.EVENT_BUS.addListener(ChunkRegeneratorClient::onRightClickItem);
         NeoForge.EVENT_BUS.addListener(ChunkRegeneratorClient::onRightClickEmpty);

@@ -1,9 +1,11 @@
 package com.zanon.chunkregenerator.regen;
 
 import java.lang.reflect.Method;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.zanon.chunkregenerator.ChunkRegeneratorMod;
+import com.zanon.chunkregenerator.block.entity.ChunkDevourerBlockEntity;
 
 import net.minecraft.core.SectionPos;
 import net.minecraft.server.level.ChunkHolder;
@@ -42,13 +44,15 @@ public final class ChunkRegenTask {
     }
 
     public void start() {
+        List<ChunkDevourerBlockEntity.SavedMachine> devourers = ChunkDevourerBlockEntity.preserveInChunk(this.level, this.center);
         try {
             this.loadHalo();
             this.discardEntities();
             this.evictCenter();
             this.purgeSavedChunk();
-            this.generate();
+            this.generate(devourers);
         } catch (RuntimeException exception) {
+            ChunkDevourerBlockEntity.restoreAll(this.level, devourers);
             ChunkRegeneratorMod.LOGGER.error("Chunk regeneration failed at {}", this.center, exception);
             this.finished.set(true);
         }
@@ -118,7 +122,7 @@ public final class ChunkRegenTask {
         chunkMap.synchronize(true).join();
     }
 
-    private void generate() {
+    private void generate(List<ChunkDevourerBlockEntity.SavedMachine> devourers) {
         ServerChunkCache cache = this.level.getChunkSource();
         ChunkMap chunkMap = cache.chunkMap;
         long key = this.center.pack();
@@ -128,6 +132,7 @@ public final class ChunkRegenTask {
         chunkMap.promoteChunkMap();
         if (holder == null) {
             ChunkRegeneratorMod.LOGGER.error("Chunk {} was not scheduled after its saved data was removed", this.center);
+            ChunkDevourerBlockEntity.restoreAll(this.level, devourers);
             this.finished.set(true);
             return;
         }
@@ -142,6 +147,10 @@ public final class ChunkRegenTask {
                 ChunkRegeneratorMod.LOGGER.error("Worldgen did not finish for {}: {}", this.center, throwable == null ? result : throwable.toString());
             } else {
                 ChunkRegeneratorMod.LOGGER.info("Regenerated chunk {} in {}", this.center, this.level.dimension().identifier());
+            }
+            ChunkDevourerBlockEntity.restoreAll(this.level, devourers);
+            if (!devourers.isEmpty()) {
+                ChunkRemoveService.refreshAround(this.level, this.center);
             }
             this.finished.set(true);
         }, chunkMap::scheduleOnMainThreadMailbox);

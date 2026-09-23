@@ -1,6 +1,7 @@
 package com.zanon.chunkregenerator.registry;
 
 import com.zanon.chunkregenerator.ChunkRegeneratorMod;
+import com.zanon.chunkregenerator.block.ChunkDevourerBlock;
 import com.zanon.chunkregenerator.block.ChunkRegeneratorBlock;
 import com.zanon.chunkregenerator.block.ChunkRemoverBlock;
 
@@ -31,6 +32,16 @@ public final class ModBlocks {
                     .requiresCorrectToolForDrops()
                     .sound(SoundType.METAL)
                     .lightLevel(state -> state.getValue(ChunkRemoverBlock.POWERED) ? 7 : 0));
+
+    public static final DeferredBlock<ChunkDevourerBlock> CHUNK_DEVOURER = BLOCKS.registerBlock(
+            "chunk_devourer",
+            ChunkDevourerBlock::new,
+            properties -> properties
+                    .mapColor(MapColor.COLOR_RED)
+                    .strength(3.5F)
+                    .requiresCorrectToolForDrops()
+                    .sound(SoundType.METAL)
+                    .lightLevel(state -> state.getValue(ChunkDevourerBlock.POWERED) ? 7 : 0));
 
     private ModBlocks() {}
 }

@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "particle": "chunkregenerator:block/chunk_devourer_side",
+    "down": "chunkregenerator:block/chunk_devourer_side",
+    "up": "chunkregenerator:block/chunk_devourer_top",
+    "north": "chunkregenerator:block/chunk_devourer_side",
+    "east": "chunkregenerator:block/chunk_devourer_side",
+    "south": "chunkregenerator:block/chunk_devourer_side",
+    "west": "chunkregenerator:block/chunk_devourer_side"
+  }
+}

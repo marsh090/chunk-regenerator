@@ -97,7 +97,18 @@ public final class ChunkRegenService {
         return validate(level, chunk, placer, ignoreOccupant, true);
     }
 
+    /**
+     * Claim and dimension check for a machine. It is not a player, so occupancy and cooldown do not apply.
+     */
+    public static RegenResult authorizeMachine(ServerLevel level, ChunkPos chunk, UUID placer) {
+        return validate(level, chunk, placer, null, false, false);
+    }
+
     public static RegenResult validate(ServerLevel level, ChunkPos chunk, UUID placer, @Nullable UUID ignoreOccupant, boolean applyCooldown) {
+        return validate(level, chunk, placer, ignoreOccupant, applyCooldown, true);
+    }
+
+    public static RegenResult validate(ServerLevel level, ChunkPos chunk, UUID placer, @Nullable UUID ignoreOccupant, boolean applyCooldown, boolean checkPlayers) {
         String dimension = level.dimension().identifier().toString();
         for (String denied : ModServerConfig.DENIED_DIMENSIONS.get()) {
             if (Identifier.parse(denied).toString().equals(dimension)) {
@@ -107,7 +118,7 @@ public final class ChunkRegenService {
         if (applyCooldown && onCooldown(level, chunk, placer)) {
             return RegenResult.DENIED_COOLDOWN;
         }
-        if (ModServerConfig.DENY_IF_PLAYERS_PRESENT.get() && playersPresent(level, chunk, ignoreOccupant)) {
+        if (checkPlayers && ModServerConfig.DENY_IF_PLAYERS_PRESENT.get() && playersPresent(level, chunk, ignoreOccupant)) {
             return RegenResult.DENIED_PLAYERS;
         }
         String claimDenial = CompositeClaimAccess.denialKey(level, chunk, placer);

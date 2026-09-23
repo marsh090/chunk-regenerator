@@ -2,6 +2,7 @@ package com.zanon.chunkregenerator.registry;
 
 import com.zanon.chunkregenerator.ChunkRegeneratorMod;
 import com.zanon.chunkregenerator.item.ChunkAnalyzerItem;
+import com.zanon.chunkregenerator.item.ChunkDevourerBlockItem;
 import com.zanon.chunkregenerator.item.CreativeChunkAnalyzerItem;
 
 import net.minecraft.core.component.DataComponents;
@@ -14,6 +15,10 @@ public final class ModItems {
 
     public static final DeferredItem<BlockItem> CHUNK_REGENERATOR = ITEMS.registerSimpleBlockItem(ModBlocks.CHUNK_REGENERATOR);
     public static final DeferredItem<BlockItem> CHUNK_REMOVER = ITEMS.registerSimpleBlockItem(ModBlocks.CHUNK_REMOVER);
+    public static final DeferredItem<ChunkDevourerBlockItem> CHUNK_DEVOURER = ITEMS.registerItem(
+            "chunk_devourer",
+            properties -> new ChunkDevourerBlockItem(ModBlocks.CHUNK_DEVOURER.get(), properties),
+            properties -> properties.useBlockDescriptionPrefix());
     public static final DeferredItem<ChunkAnalyzerItem> CHUNK_ANALYZER = ITEMS.registerItem(
             "chunk_analyzer",
             ChunkAnalyzerItem::new,

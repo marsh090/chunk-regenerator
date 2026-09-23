@@ -105,6 +105,10 @@ public final class ChunkRemoveService {
      * until the client receives a fresh copy of the chunk and its light.
      * Integrated servers run light on a worker thread, so the flush has to be queued there.
      */
+    public static void refreshAround(ServerLevel level, ChunkPos center) {
+        refreshClient(level, center);
+    }
+
     private static void refreshClient(ServerLevel level, ChunkPos center) {
         ChunkPos[] area = new ChunkPos[9];
         int index = 0;

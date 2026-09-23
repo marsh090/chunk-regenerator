@@ -6,10 +6,12 @@ import com.mojang.logging.LogUtils;
 import com.zanon.chunkregenerator.config.ModServerConfig;
 import com.zanon.chunkregenerator.item.ChunkAnalyzerItem;
 import com.zanon.chunkregenerator.network.SetAnalyzerTagsPayload;
+import com.zanon.chunkregenerator.block.entity.ChunkDevourerBlockEntity;
 import com.zanon.chunkregenerator.registry.ModBlockEntities;
 import com.zanon.chunkregenerator.registry.ModBlocks;
 import com.zanon.chunkregenerator.registry.ModDataComponents;
 import com.zanon.chunkregenerator.registry.ModItems;
+import com.zanon.chunkregenerator.registry.ModMenus;
 
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.CreativeModeTab;
@@ -37,6 +39,7 @@ public class ChunkRegeneratorMod {
             .displayItems((parameters, output) -> {
                 output.accept(ModItems.CHUNK_REGENERATOR.get());
                 output.accept(ModItems.CHUNK_REMOVER.get());
+                output.accept(ModItems.CHUNK_DEVOURER.get());
                 ItemStack analyzer = new ItemStack(ModItems.CHUNK_ANALYZER.get());
                 analyzer.set(ModDataComponents.ENERGY.get(), ChunkAnalyzerItem.CAPACITY);
                 output.accept(analyzer);
@@ -49,9 +52,11 @@ public class ChunkRegeneratorMod {
         ModBlocks.BLOCKS.register(modEventBus);
         ModItems.ITEMS.register(modEventBus);
         ModBlockEntities.BLOCK_ENTITIES.register(modEventBus);
+        ModMenus.MENUS.register(modEventBus);
         CREATIVE_MODE_TABS.register(modEventBus);
         modEventBus.addListener(ModGameTests::register);
         modEventBus.addListener(ChunkAnalyzerItem::registerCapabilities);
+        modEventBus.addListener(ChunkDevourerBlockEntity::registerCapabilities);
         modEventBus.addListener(SetAnalyzerTagsPayload::register);
         modContainer.registerConfig(ModConfig.Type.SERVER, ModServerConfig.SPEC);
     }
